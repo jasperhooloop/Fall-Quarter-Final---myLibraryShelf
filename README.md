@@ -120,6 +120,7 @@ npm run dev
 
 - React app calls backend endpoints at `http://localhost:5053/api/...` (proxied in dev when needed).
 - Backend stored procedures handle all DB interactions for consistency, ensuring shelf/business logic stays server-side.
+- Open Library Search API (https://openlibrary.org/search.json) supplies book metadata; user queries (title/author/series/ISBN) are forwarded, and the UI displays the results with a custom scrollbar for easy browsing.
 
 ---
 
