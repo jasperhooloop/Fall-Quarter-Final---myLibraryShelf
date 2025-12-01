@@ -1,6 +1,6 @@
 # 📚 myLibraryShelf
 
-A Windows XP-themed personal library manager built with ASP.NET Core Web API, SQL Server, and a Vite + React frontend. Create or load a shelf, search Open Library for books, add/remove titles, and keep a tidier catalog.
+A Windows XP-themed personal library manager built with ASP.NET Core Web API, SQL Server, and a React frontend. Create or load a shelf, search Open Library for books, add/remove titles, and keep a tidier catalog.
 
 ---
 
@@ -99,7 +99,7 @@ dotnet run
 
 ## 🖥️ Frontend Highlights
 
-- Vite + React app styled after Windows XP: blue frame, icon buttons, custom scrollbar.
+- React app styled after Windows XP: blue frame, icon buttons, custom scrollbar.
 - Features:
   - Create/load shelf forms.
   - Search form hitting Open Library (Title / Author / Series / Keywords / ISBN).
