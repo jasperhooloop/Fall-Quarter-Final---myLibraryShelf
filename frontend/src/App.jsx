@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   createShelf,
   authenticateShelf,
@@ -38,11 +38,14 @@ function App() {
   const [loginForm, setLoginForm] = useState({ shelfName: '', passwordHash: '' });
   const [searchForm, setSearchForm] = useState(initialSearchForm);
   const [searchResults, setSearchResults] = useState([]);
-  const [books, setBooks] = useState([]);
+const [books, setBooks] = useState([]);
   const [selectedBookIds, setSelectedBookIds] = useState([]);
   const [message, setMessage] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [activeShelf, setActiveShelf] = useState(null);
+  const resultsRef = useRef(null);
+  const trackRef = useRef(null);
+  const [scrollState, setScrollState] = useState({ thumbHeight: 0, thumbTop: 0, scrollable: false });
 
   useEffect(() => {
     if (activeShelf) {
@@ -137,6 +140,74 @@ function App() {
     } catch (error) {
       setMessage(`Unable to add book: ${error.message}`);
     }
+  };
+
+  const calculateScrollMetrics = () => {
+    const listEl = resultsRef.current;
+    const trackEl = trackRef.current;
+    if (!listEl || !trackEl) {
+      setScrollState({ thumbHeight: 0, thumbTop: 0, scrollable: false });
+      return;
+    }
+    const { scrollHeight, clientHeight, scrollTop } = listEl;
+    if (scrollHeight <= clientHeight) {
+      setScrollState({ thumbHeight: 0, thumbTop: 0, scrollable: false });
+      return;
+    }
+    const trackHeight = trackEl.clientHeight;
+    const thumbHeight = Math.max((clientHeight / scrollHeight) * trackHeight, 40);
+    const maxThumbTop = trackHeight - thumbHeight;
+    const thumbTop = (scrollTop / (scrollHeight - clientHeight)) * maxThumbTop;
+    setScrollState({ thumbHeight, thumbTop, scrollable: true });
+  };
+
+  useEffect(() => {
+    calculateScrollMetrics();
+    const listEl = resultsRef.current;
+    if (!listEl) return;
+    const handleScroll = () => calculateScrollMetrics();
+    listEl.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      listEl.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [searchResults]);
+
+  const handleTrackClick = (event) => {
+    if (!scrollState.scrollable || !resultsRef.current || !trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const clickRatio = (event.clientY - rect.top) / rect.height;
+    const listEl = resultsRef.current;
+    const scrollRange = listEl.scrollHeight - listEl.clientHeight;
+    listEl.scrollTop = scrollRange * clickRatio;
+  };
+
+  const handleThumbMouseDown = (event) => {
+    if (!resultsRef.current || !trackRef.current || !scrollState.scrollable) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startY = event.clientY;
+    const listEl = resultsRef.current;
+    const startScrollTop = listEl.scrollTop;
+    const scrollRange = listEl.scrollHeight - listEl.clientHeight;
+    const trackHeight = trackRef.current.clientHeight;
+    const draggableHeight = trackHeight - scrollState.thumbHeight;
+
+    const onMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientY - startY;
+      const ratio = draggableHeight > 0 ? delta / draggableHeight : 0;
+      const newScrollTop = startScrollTop + ratio * scrollRange;
+      listEl.scrollTop = Math.max(0, Math.min(scrollRange, newScrollTop));
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   };
 
   const toggleBookSelection = (bookId) => {
@@ -254,19 +325,35 @@ function App() {
             {isSearching ? 'Searching...' : 'Search'}
           </IconButton>
         </form>
-        <div className="search-results">
-          {searchResults.length === 0 && <p>No search results yet.</p>}
-          {searchResults.map((doc) => (
-            <div className="list-item" key={`book-${doc.key}`}>
-              <strong>{doc.title}</strong>
-              <div>Author: {Array.isArray(doc.author_name) ? doc.author_name.join(', ') : 'Unknown'}</div>
-              <div>First Published: {doc.first_publish_year || 'n/a'}</div>
-              <div>ISBN: {Array.isArray(doc.isbn) ? doc.isbn[0] : 'n/a'}</div>
-              <IconButton icon={ICONS.add} type="button" onClick={() => handleAddBookFromSearch(doc)}>
-                Add to myLibraryShelf
-              </IconButton>
-            </div>
-          ))}
+        <div className="search-results-wrapper">
+          <div className="search-results" ref={resultsRef}>
+            {searchResults.length === 0 && <p>No search results yet.</p>}
+            {searchResults.map((doc) => (
+              <div className="list-item" key={`book-${doc.key}`}>
+                <strong>{doc.title}</strong>
+                <div>Author: {Array.isArray(doc.author_name) ? doc.author_name.join(', ') : 'Unknown'}</div>
+                <div>First Published: {doc.first_publish_year || 'n/a'}</div>
+                <div>ISBN: {Array.isArray(doc.isbn) ? doc.isbn[0] : 'n/a'}</div>
+                <IconButton icon={ICONS.add} type="button" onClick={() => handleAddBookFromSearch(doc)}>
+                  Add to myLibraryShelf
+                </IconButton>
+              </div>
+            ))}
+          </div>
+          <div
+            className={`scrollbar-track ${scrollState.scrollable ? 'visible' : ''}`}
+            ref={trackRef}
+            onMouseDown={handleTrackClick}
+          >
+            <div
+              className="scrollbar-thumb"
+              style={{
+                height: scrollState.scrollable ? `${scrollState.thumbHeight}px` : 0,
+                transform: `translateY(${scrollState.thumbTop}px)`
+              }}
+              onMouseDown={handleThumbMouseDown}
+            />
+          </div>
         </div>
         </section>
 
